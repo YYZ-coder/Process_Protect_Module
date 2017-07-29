@@ -1,7 +1,13 @@
+
+/*
+ * @author Yue 
+ *
+ */
+
 /* * * * * * * * * * * * * * * * * * * 
 
-���� PsSetCreateProcessNotifyRoutineEx
-ʵ�ֶԽ��̵ļ��(�������ر�)
+利用 PsSetCreateProcessNotifyRoutineEx
+实现对进程的监控(创建，关闭)
 
 * * * * * * * * * * * * * * * * * * * */
 
@@ -9,49 +15,49 @@
 #include "ProcessForbid.h"
 #include "SSDT_HOOK.h"
 
-//SkyEye����SSDT��ǰ����ID������
+//SkyEye发送SSDT当前进程ID并保护
 #define IOCTL_SSDT_ADD \
 	CTL_CODE(\
 	FILE_DEVICE_UNKNOWN, \
 	0x830, METHOD_BUFFERED, \
 	FILE_READ_ACCESS | FILE_WRITE_ACCESS)
 
-//SkyEyeɾ��SSDT��ǰ�ܱ�������ID
+//SkyEye删除SSDT当前受保护进程ID
 #define IOCTL_SSDT_DELETE \
 	CTL_CODE(\
 	FILE_DEVICE_UNKNOWN, \
 	0x831, METHOD_BUFFERED, \
 	FILE_READ_ACCESS | FILE_WRITE_ACCESS)
 
-//�����û�������û���,����,DBname,DBhost��CP->SSDT
+//发送用户输入的用户名,密码,DBname,DBhost：CP->SSDT
 #define IOCTL_SSDT_SEND_UP\
 	CTL_CODE(\
 	FILE_DEVICE_UNKNOWN, \
 	0x850, METHOD_BUFFERED, \
 	FILE_READ_ACCESS | FILE_WRITE_ACCESS)
 
-//��õ�ǰ�˻��û���,����,DBname,DBhost��Register+CP -> SkyEye
+//获得当前账户用户名,密码,DBname,DBhost：Register+CP -> SkyEye
 #define IOCTL_SSDT_GET_UP\
 	CTL_CODE(\
 	FILE_DEVICE_UNKNOWN, \
 	0x851, METHOD_BUFFERED, \
 	FILE_READ_ACCESS | FILE_WRITE_ACCESS)
 
-//����װ��Ϣд��ע�����SkyEye->Register
+//将安装信息写入注册表：SkyEye->Register
 #define IOCTL_SSDT_SET_REG\
 	CTL_CODE(\
 	FILE_DEVICE_UNKNOWN,\
 	0x852,METHOD_BUFFERED,\
 	FILE_WRITE_ACCESS | FILE_READ_ACCESS)
 
-//��ע���������װ��Ϣ��Register->CP
+//从注册表读出安装信息：Register->CP
 #define IOCTL_SSDT_GET_REG\
 	CTL_CODE(\
 	FILE_DEVICE_UNKNOWN,\
 	0x853,METHOD_BUFFERED,\
 	FILE_WRITE_ACCESS | FILE_READ_ACCESS)
 
-//�������������
+//清除驱动黑名单
 #define IOCTL_SSDT_CLAER_BLACK_ILST\
 	CTL_CODE(\
 	FILE_DEVICE_UNKNOWN, \
@@ -61,10 +67,10 @@
 #define DEVICE_NAME_PROCESS				L"\\Device\\SSDTProcess"
 #define SYMBOLINK_NAME_PROCESS			L"\\??\\SSDTProcess"
 
-//������ ntoskrnl.exe �������� SSDT
+//导出由 ntoskrnl.exe 所导出的 SSDT
 extern PKSERVICE_TABLE_DESCRIPTOR KeServiceDescriptorTable;
 
-//�洢CP�������û���,����
+//存储CP发来的用户名,密码
 typedef struct _USER_PASSWORD{
 	int  userLength;
 	int  passwordLength;
@@ -72,36 +78,36 @@ typedef struct _USER_PASSWORD{
 	CHAR PASSWORD[20];
 }USER_PASSWORD, *PUSER_PASSWORD;
 
-//�û���¼����
+//用户记录链表
 typedef struct _USER_LIST{
 	LIST_ENTRY listEntry;
 	USER_PASSWORD UserPassword;
 }USER_LIST, *PUSER_LIST;
-//��¼��������
+//记录链表的锁
 KSPIN_LOCK userLock;
-//�û�����
+//用户链表
 LIST_ENTRY userList;
-//CP����Ϣ+ע�������Ϣ�����ݽṹ����SkyEye
+//CP的信息+注册表的信息的数据结构发给SkyEye
 PCP_TO_R3 pc2r = NULL;
-//CP��ȡע�������Ϣ
+//CP读取注册表的信息
 PREG_TO_CP pRTC = NULL;
-//��־������Ĭ��ΪFALSE
-//ΪTRUEʱ����Ϊ��SkyEye�����Ϣ;
-//ΪFALSEʱ����Ϊ��CP�����Ϣ.
+//标志变量，默认为FALSE
+//为TRUE时，认为是SkyEye获得信息;
+//为FALSE时，认为是CP获得信息.
 BOOLEAN SkyEyeGetReg = FALSE;
-//��ֹ�򿪵Ľ�����
+//禁止打开的进程链
 LIST_ENTRY ForbidProcessList;
-//����������
+//进程链的锁
 KSPIN_LOCK ForbidProcessListLock;
 
-//Ҫ����ȥ�Ľ�ֹ���������ַ�������
+//要传进去的禁止进程名和字符串长度
 typedef struct _ForbidProcessName{
 	int length;
 	WCHAR ProcessName[50];
 }ForbidProcessName, *PForbidProcessName;
 
 
-//�����½���û���¼����
+//插入登陆的用户记录链表
 NTSTATUS InsertUserList(PUSER_LIST up){
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	KLOCK_QUEUE_HANDLE handle;
@@ -114,7 +120,7 @@ NTSTATUS InsertUserList(PUSER_LIST up){
 	return Status;
 }
 
-//ɾ����½���û���¼
+//删除登陆的用户记录
 NTSTATUS RemoveUserList(PUSER_LIST ul){
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	KLOCK_QUEUE_HANDLE handle;
@@ -127,7 +133,7 @@ NTSTATUS RemoveUserList(PUSER_LIST ul){
 	return Status;
 }
 
-//�������̵Ļص�����
+//创建进程的回调函数
 VOID CreateProcessNotifyEx(__inout PEPROCESS  Process,__in HANDLE  ProcessId,__in_opt PPS_CREATE_NOTIFY_INFO  CreateInfo){
 	UNREFERENCED_PARAMETER(ProcessId);
 	UNREFERENCED_PARAMETER(Process);
@@ -138,14 +144,14 @@ VOID CreateProcessNotifyEx(__inout PEPROCESS  Process,__in HANDLE  ProcessId,__i
 	uniPath.MaximumLength = 256 * 2;
 	uniPath.Buffer = (PWSTR)ExAllocatePool(NonPagedPool, uniPath.MaximumLength);
 	ULONG currenPID = (ULONG)ProcessId;
-	//ΪNULL��ʾ�����˳�
+	//为NULL表示进程退出
 	if (NULL == CreateInfo){
 		/*for (int i = 0; i < MAX_PROCESS_ARRARY_LENGTH; i++){
 			if (g_PIDProtectArray[i] == currenPID)
 			{
-				//��õ�ǰ����ȫ·��
+				//获得当前进程全路径
 				GetProcessPath(currenPID,&uniPath);
-				//�Լ�����һ��PPS_CREATE_NOTIFY_INFO�ṹ��������
+				//自己创建一个PPS_CREATE_NOTIFY_INFO结构，并返回
 				PPS_CREATE_NOTIFY_INFO pPCNI = (PPS_CREATE_NOTIFY_INFO)
 					ExAllocatePool(NonPagedPool, sizeof(PS_CREATE_NOTIFY_INFO));
 				pPCNI->ImageFileName = &uniPath;
@@ -180,7 +186,7 @@ VOID CreateProcessNotifyEx(__inout PEPROCESS  Process,__in HANDLE  ProcessId,__i
 	}
 	if (NULL != pSub)
 	{
-		//�޸ķ��ؽ��Ϊ�ܾ����ʣ�ʹ�ô�������ʧ��
+		//修改返回结果为拒绝访问，使得创建进程失败
 		CreateInfo->CreationStatus = STATUS_ACCESS_DENIED;
 	}
 
@@ -190,7 +196,7 @@ VOID CreateProcessNotifyEx(__inout PEPROCESS  Process,__in HANDLE  ProcessId,__i
 //#pragma INITCODE
 NTSTATUS DriverEntry(IN PDRIVER_OBJECT pDriverObject,IN PUNICODE_STRING pRegistryPath)
 {
-	//�������windows���������,DriverSection��ʾϵͳ����������״�ĵ�ǰ���������еĽڵ�
+	//用来躲避windows的驱动检测,DriverSection表示系统将驱动呈链状的当前驱动在其中的节点
 #ifdef _AMD64_ 
 	DbgPrint("64\r\n");
 	*((PCHAR)pDriverObject->DriverSection + 0x68) |= 0x20;
@@ -240,23 +246,23 @@ NTSTATUS DriverEntry(IN PDRIVER_OBJECT pDriverObject,IN PUNICODE_STRING pRegistr
 
 	KdPrint(("DriverEntry===->\n"));
 
-	//ʹ��ֱ�� IO ��д��ʽ
+	//使用直接 IO 读写方式
 	pDeviceObject->Flags |= DO_DIRECT_IO;
 	pDeviceObject->AlignmentRequirement = FILE_WORD_ALIGNMENT;
 	status = IoCreateSymbolicLink(&strSymbolLinkName, &strDeviceName);
 
 	pDeviceObject->Flags &= ~DO_DEVICE_INITIALIZING;
 
-	//��ʼ���û���¼����
+	//初始化用户记录链表
 	InitializeListHead(&userList);
-	//��ʼ���û���¼��
+	//初始化用户记录锁
 	KeInitializeSpinLock(&userLock);
-	//��ʼ����ֹ�򿪵Ľ�����
+	//初始化禁止打开的进程链
 	InitializeListHead(&ForbidProcessList);
-	//��ʼ����ֹ�򿪽���������
+	//初始化禁止打开进程链的锁
 	KeInitializeSpinLock(&ForbidProcessListLock);
 
-	//��ʼ��Ŀǰ��½���û���Ϣ����
+	//初始化目前登陆的用户信息对象
 	pc2r = (PCP_TO_R3)ExAllocatePool(NonPagedPool,sizeof(CP_TO_R3));
 	if (pc2r != NULL)
 		KdPrint(("pc2r Allocate Success!"));
@@ -270,7 +276,7 @@ NTSTATUS DriverEntry(IN PDRIVER_OBJECT pDriverObject,IN PUNICODE_STRING pRegistr
 	}
 	for (int j = 0; j < 20; j++)
 		pc2r->PASSWORD[j] = '#';
-	//��ʼ��Ҫ���͸�CP�����ݿ��ϵͳ��Ϣ
+	//初始化要发送给CP的数据库和系统信息
 	pRTC = (PREG_TO_CP)ExAllocatePool(NonPagedPool, sizeof(REG_TO_CP));
 	if (pRTC != NULL)
 		KdPrint(("pRTC Allocate Success!"));
@@ -285,9 +291,9 @@ NTSTATUS DriverEntry(IN PDRIVER_OBJECT pDriverObject,IN PUNICODE_STRING pRegistr
 	for (int i = 0; i < 20; i++)
 		pRTC->sysPassword[i] = '#';
 
-	//������Ҫ����ԭ���� SSDT ϵͳ���������������з���ĵ�ַ����Щ��ַ��Ҫ����ʵ�ֽ�� Hook
+	//首先需要备份原来的 SSDT 系统服务描述表中所有服务的地址，这些地址主要用于实现解除 Hook
 	BackupSysServicesTable();
-	//���ý��̴������رջص�����
+	//设置进程创建，关闭回调函数
 	NTSTATUS pn = STATUS_SUCCESS;
 	pn = PsSetCreateProcessNotifyRoutineEx((PCREATE_PROCESS_NOTIFY_ROUTINE_EX)CreateProcessNotifyEx,FALSE);
 	if (pn != STATUS_SUCCESS)
@@ -295,7 +301,7 @@ NTSTATUS DriverEntry(IN PDRIVER_OBJECT pDriverObject,IN PUNICODE_STRING pRegistr
 	else
 		KdPrint(("SSDT--------Failed PsSetCreateProcessNotifyRoutineEx!!!!!"));
 
-	//��װ Hook:���µ�MyNtQuerySystemInformation/MyNtTerminateProcess�滻ZwQuerySystemInformation/ZwTerminateProcess
+	//安装 Hook:用新的MyNtQuerySystemInformation/MyNtTerminateProcess替换ZwQuerySystemInformation/ZwTerminateProcess
 	InstallSSDTHook((ULONG)ZwQuerySystemInformation, (ULONG)MyNtQuerySystemInformation);
 	InstallSSDTHook((ULONG)ZwTerminateProcess, (ULONG)MyNtTerminateProcess);
 
@@ -303,7 +309,7 @@ NTSTATUS DriverEntry(IN PDRIVER_OBJECT pDriverObject,IN PUNICODE_STRING pRegistr
 }
 
 
-//����ȥ���ڴ�Ŀ�д���ԣ��Ӷ�ʵ���ڴ�ֻ��
+//用来去掉内存的可写属性，从而实现内存只读
 VOID DisableWriteProtect(ULONG oldAttr)
 {
 	KdPrint(("DisableWriteProtect===->\n"));
@@ -315,12 +321,12 @@ VOID DisableWriteProtect(ULONG oldAttr)
 	}
 }
 
-//����ȥ���ڴ��ֻ���������Ӷ�ʵ�ֿ���д�ڴ�
+//用来去掉内存的只读保护，从而实现可以写内存
 VOID EnableWriteProtect(PULONG pOldAttr)
 {
 	KdPrint(("EnableWriteProtect===->\n"));
 	ULONG uAttr;
-	//���ָ�
+	//汇编指令：
 	_asm
 	{
 		cli;
@@ -330,16 +336,16 @@ VOID EnableWriteProtect(PULONG pOldAttr)
 		mov  cr0, eax;
 	};
 
-	//����ԭ�е� CRO ���� 
+	//保存原有的 CRO 属性 
 	*pOldAttr = uAttr;
 }
 
-//���� SSDT ��ԭ�з���ĵ�ַ����Ϊ�����ڽ�� Hook ʱ��Ҫ��ԭ SSDT ��ԭ�е�ַ
+//备份 SSDT 中原有服务的地址，因为我们在解除 Hook 时需要还原 SSDT 中原有地址
 VOID BackupSysServicesTable()
 {
 	KdPrint(("BackupSysServicesTable===->\n"));
 	ULONG i;
-	//ѭ���������ӵ�0��������ʼ��ֱ��SSDT��ntoskrnl����ַ��󣬱������еķ��񣬲��洢��һ���ṹ�С�
+	//循环操作：从第0个索引开始，直到SSDT的ntoskrnl基地址最后，遍历所有的服务，并存储到一个结构中。
 	for (i = 0; (i < KeServiceDescriptorTable->ntoskrnl.NumberOfService) && (i < MAX_SYSTEM_SERVICE_NUMBER); i++)
 	{
 		oldSysServiceAddr[i] = KeServiceDescriptorTable->ntoskrnl.ServiceTableBase[i];
@@ -352,40 +358,40 @@ VOID BackupSysServicesTable()
 }
 
 //
-//Mark:	���е�EnableWriteProtect��DisableWriteProtect�൱��һ���������������ͽ���
-//����HOOK
+//Mark:	其中的EnableWriteProtect和DisableWriteProtect相当于一个自旋锁的上锁和解锁
+//开启HOOK
 NTSTATUS InstallSSDTHook(ULONG oldService, ULONG newService)
 {
 	KdPrint(("InstallSSDTHook===->\n"));
 
 	ULONG uOldAttr = 0;
 
-	//ʵ�ֿ�д���ƽ�SSDTֻ������
+	//实现可写，破解SSDT只读操作
 	EnableWriteProtect(&uOldAttr);
 
-	//��oldService���ϵ�ַ������newService
+	//给oldService的老地址处存上newService
 	SYSCALL_FUNCTION(oldService) = newService;
 	
-	//�ָ�ԭ״
+	//恢复原状
 	DisableWriteProtect(uOldAttr);
 
 	return STATUS_SUCCESS;
 }
 
 //
-//Mark:	���е�EnableWriteProtect��DisableWriteProtect�൱��һ���������������ͽ���
-//�ر�HOOK
+//Mark:	其中的EnableWriteProtect和DisableWriteProtect相当于一个自旋锁的上锁和解锁
+//关闭HOOK
 NTSTATUS UnInstallSSDTHook(ULONG oldService)
 {
 	KdPrint(("UnInstallSSDTHook===->\n"));
 	ULONG uOldAttr = 0;
 
-	//ʵ�ֿ�д
+	//实现可写
 	EnableWriteProtect(&uOldAttr);
 
-	//��ԭ��ַ���´��oldService
+	//将原地址重新存放oldService
 	SYSCALL_FUNCTION(oldService) = oldSysServiceAddr[SYSCALL_INDEX(oldService)];
-	//ʵ�ֿɶ�
+	//实现可读
 	DisableWriteProtect(uOldAttr);
 
 	return STATUS_SUCCESS;
@@ -441,11 +447,11 @@ NTSTATUS SSDTWriteDispatcher(IN PDEVICE_OBJECT pDeviceObject, IN PIRP pIrp)
 	return rtStatus;
 }
 
-//�������
+//清空链表
 VOID clear(){
 	KLOCK_QUEUE_HANDLE userhandle;
 	KeAcquireInStackQueuedSpinLock(&userLock,&userhandle);
-	//����û���¼����
+	//清空用户记录链表
 	if (!IsListEmpty(&userList)){
 		while (!IsListEmpty(&userList)){
 			PLIST_ENTRY pEntry = RemoveTailList(&userList);
@@ -457,7 +463,7 @@ VOID clear(){
 
 	KLOCK_QUEUE_HANDLE handle;
 	KeAcquireInStackQueuedSpinLock(&ForbidProcessListLock, &handle);
-	//��ռ�¼��ֹ���̵�����
+	//清空记录禁止进程的链表
 	if (!IsListEmpty(&ForbidProcessList)){
 		while (!IsListEmpty(&ForbidProcessList)){
 			PLIST_ENTRY pEntry = RemoveTailList(&ForbidProcessList);
@@ -468,7 +474,7 @@ VOID clear(){
 	KeReleaseInStackQueuedSpinLock(&handle);
 }
 
-//���Ʒַ�����
+//控制分发函数
 NTSTATUS SSDTDeviceIoControlDispatcher(IN PDEVICE_OBJECT pDeviceObject, IN PIRP pIrp)
 {
 	KdPrint(("IOCtrl Dispatch"));
@@ -480,61 +486,61 @@ NTSTATUS SSDTDeviceIoControlDispatcher(IN PDEVICE_OBJECT pDeviceObject, IN PIRP 
 	PIO_STACK_LOCATION pStack;
 	//SkyEye => SSDT IOCTL_SSDT_ADD/IOCTL_SSDT_DELETE
 	PULONG pInBuffer = NULL;
-	//CP  =>  SSDT���洢 IOCTL_SSDT_SEND_UP
+	//CP  =>  SSDT并存储 IOCTL_SSDT_SEND_UP
 	PUSER_PASSWORD pUP = NULL;
 	PUSER_LIST userList = NULL;
-	//ע���&SSDT  => SkyEye IOCTL_SSDT_GET_UP
+	//注册表&SSDT  => SkyEye IOCTL_SSDT_GET_UP
 	PCP_TO_R3 pcp2r3 = NULL;
-	//SkyEye  => ע���  IOCTL_SSDT_SET_REG
+	//SkyEye  => 注册表  IOCTL_SSDT_SET_REG
 	PR3_TO_REG pRTR = NULL;
-	//ע��� => CP  IOCTL_SSDT_GET_REG
+	//注册表 => CP  IOCTL_SSDT_GET_REG
 	PREG_TO_CP pRTCC = NULL;
-	//ɾ���Ľ�ֹ������
+	//删除的禁止进程名
 	PForbidProcessName addProcesName = NULL;
-	//ɾ���Ľ�ֹ������
+	//删除的禁止进程名
 	PForbidProcessName deleteProcesName = NULL;
 
-	pStack = IoGetCurrentIrpStackLocation(pIrp);//�õ���ǰIO��ջ
-	uInLen = pStack->Parameters.DeviceIoControl.InputBufferLength;//�õ����뻺������С
-	uOutLen = pStack->Parameters.DeviceIoControl.OutputBufferLength;//�õ������������С
-	uCtrlCode = pStack->Parameters.DeviceIoControl.IoControlCode;//�õ�IOCTL��
+	pStack = IoGetCurrentIrpStackLocation(pIrp);//得到当前IO堆栈
+	uInLen = pStack->Parameters.DeviceIoControl.InputBufferLength;//得到输入缓冲区大小
+	uOutLen = pStack->Parameters.DeviceIoControl.OutputBufferLength;//得到输出缓冲区大小
+	uCtrlCode = pStack->Parameters.DeviceIoControl.IoControlCode;//得到IOCTL码
 
 	switch (uCtrlCode){
-	case IOCTL_SSDT_ADD://--------------SkyEye����ǰ���̼ӱ���
+	case IOCTL_SSDT_ADD://--------------SkyEye给当前进程加保护
 		KdPrint(("----------Add----------"));
 		pInBuffer = (PULONG)pIrp->AssociatedIrp.SystemBuffer;
-		//���뱻��������
+		//插入被保护进程
 		InsertProtectProcess(*pInBuffer);
-		//���뱻���ؽ���
+		//插入被隐藏进程
 		InsertHideProcess(*pInBuffer);
 		pIrp->IoStatus.Status = rtStatus;
 		pIrp->IoStatus.Information = 0;
 		IoCompleteRequest(pIrp, IO_NO_INCREMENT);
 		break;
-	case IOCTL_SSDT_DELETE://--------------SKyEyeȥ����ǰ���̱���
+	case IOCTL_SSDT_DELETE://--------------SKyEye去除当前进程保护
 		KdPrint(("----------Delete----------"));
 		pInBuffer = (PULONG)pIrp->AssociatedIrp.SystemBuffer;
-		//�Ƴ�����������
+		//移除被保护进程
 		RemoveProtectProcess(*pInBuffer);
-		//�Ƴ������ؽ���
+		//移除被隐藏进程
 		RemoveHideProcess(*pInBuffer);
 		pIrp->IoStatus.Status = rtStatus;
 		pIrp->IoStatus.Information = 0;
 		IoCompleteRequest(pIrp, IO_NO_INCREMENT);
 		break;
-	case IOCTL_SSDT_SEND_UP://--------------CP���͵�ǰ�û��˻�������
+	case IOCTL_SSDT_SEND_UP://--------------CP发送当前用户账户和密码
 		KdPrint(("----------send-UP---------"));
 		pUP = (PUSER_PASSWORD)pIrp->AssociatedIrp.SystemBuffer;
-		//�ͷ�ԭʼ��pUL���ڴ�����ݣ��������·���
+		//释放原始的pUL的内存和数据，并且重新分配
 		ExFreePool(pc2r);
-		//���䲢��ʼ��pc2r
+		//分配并初始化pc2r
 		pc2r = (PCP_TO_R3)ExAllocatePool(NonPagedPool,sizeof(CP_TO_R3));
 		RtlZeroMemory(pc2r,sizeof(CP_TO_R3));
 		for (int i = 0; i < 10; i++){
 			pc2r->DBNAME[i] = '#';
 			pc2r->HOST[i] = '#';
 		}
-		//��USER��ֵ
+		//给USER赋值
 		for (int i = 0; i < pUP->userLength; i++){
 			if (pUP->USER[i] <= 'z' && pUP->USER[i] >= '0'){
 				pc2r->USER[i] = pUP->USER[i];
@@ -542,7 +548,7 @@ NTSTATUS SSDTDeviceIoControlDispatcher(IN PDEVICE_OBJECT pDeviceObject, IN PIRP 
 			else break;
 		}
 		pc2r->userLen = pUP->userLength;
-		//��PASSWORD��ֵ
+		//给PASSWORD赋值
 		for (int i = 0; i < pUP->passwordLength; i++){
 			if (pUP->PASSWORD[i] <= 'z' && pUP->PASSWORD[i] >= '0'){
 				pc2r->PASSWORD[i] = pUP->PASSWORD[i];
@@ -550,7 +556,7 @@ NTSTATUS SSDTDeviceIoControlDispatcher(IN PDEVICE_OBJECT pDeviceObject, IN PIRP 
 			else break;
 		}
 		pc2r->passLen = pUP->passwordLength;
-		//-------------------------��������----------------------------------
+		//-------------------------插入链表----------------------------------
 		userList = (PUSER_LIST)ExAllocatePool(NonPagedPool,sizeof(USER_LIST));
 		RtlZeroMemory(userList,sizeof(USER_LIST));
 		for (int i = 0; i < strlen(pc2r->USER); i++)
@@ -566,12 +572,12 @@ NTSTATUS SSDTDeviceIoControlDispatcher(IN PDEVICE_OBJECT pDeviceObject, IN PIRP 
 		pIrp->IoStatus.Information = 0;
 		IoCompleteRequest(pIrp, IO_NO_INCREMENT);
 		break;
-	case IOCTL_SSDT_GET_UP://----------------------SkyEye��õ�ǰ�û��˻��������DBhost,DBname
+	case IOCTL_SSDT_GET_UP://----------------------SkyEye获得当前用户账户，密码和DBhost,DBname
 		KdPrint(("----------R3-get-UP---------"));
 		pcp2r3 = (PCP_TO_R3)pIrp->AssociatedIrp.SystemBuffer;
-		//���ñ�־Ϊ��
+		//设置标志为真
 		SkyEyeGetReg = TRUE;
-		//��USERֵ��pcp2r3
+		//传USER值给pcp2r3
 		for (int i = 0; i < pc2r->userLen; i++){
 			if (pc2r->USER[i] <= 'z' && pc2r->USER[i] >= '0'){
 				pcp2r3->USER[i] = pc2r->USER[i];
@@ -580,7 +586,7 @@ NTSTATUS SSDTDeviceIoControlDispatcher(IN PDEVICE_OBJECT pDeviceObject, IN PIRP 
 			else break;
 		}
 		pcp2r3->userLen = pc2r->userLen;
-		//��PASSWORDֵ��pcp2r3
+		//传PASSWORD值给pcp2r3
 		for (int i = 0; i < strlen(pc2r->PASSWORD); i++){
 			if (pc2r->PASSWORD[i] <= 'z' && pc2r->PASSWORD[i] >= '0'){
 				pcp2r3->PASSWORD[i] = pc2r->PASSWORD[i];
@@ -589,20 +595,20 @@ NTSTATUS SSDTDeviceIoControlDispatcher(IN PDEVICE_OBJECT pDeviceObject, IN PIRP 
 			else break;
 		}
 		pcp2r3->passLen = pc2r->passLen;
-		//��ȡע���DB���ֵ������pc2r
+		//读取注册表DB相关值并传给pc2r
 		QueryDBKey();
 
 		for (int i = 0; i < strlen(pc2r->HOST); i++)
 			pcp2r3->HOST[i] = pc2r->HOST[i];
 		for (int i = 0; i < strlen(pc2r->DBNAME); i++)
 			pcp2r3->DBNAME[i] = pc2r->DBNAME[i];
-		//���û�ԭֵ
+		//设置回原值
 		SkyEyeGetReg = FALSE;
 		pIrp->IoStatus.Status = rtStatus;
 		pIrp->IoStatus.Information = sizeof(CP_TO_R3);
 		IoCompleteRequest(pIrp, IO_NO_INCREMENT);
 		break;
-	case IOCTL_SSDT_SET_REG://----------------------SKyEye����ע�����ֵ
+	case IOCTL_SSDT_SET_REG://----------------------SKyEye设置注册表键值
 		pRTR = (PR3_TO_REG)pIrp->AssociatedIrp.SystemBuffer;
 		if (NT_SUCCESS(CreateKey())){
 			rtStatus = SetDBKey(pRTR->dbName, pRTR->dbHost);
@@ -616,7 +622,7 @@ NTSTATUS SSDTDeviceIoControlDispatcher(IN PDEVICE_OBJECT pDeviceObject, IN PIRP 
 		pIrp->IoStatus.Information = 0;
 		IoCompleteRequest(pIrp, IO_NO_INCREMENT);
 		break;
-	case IOCTL_SSDT_GET_REG://----------------------CP��Registry����װ��Ϣ
+	case IOCTL_SSDT_GET_REG://----------------------CP从Registry读安装信息
 		pRTCC = (PREG_TO_CP)pIrp->AssociatedIrp.SystemBuffer;
 		QueryDBKey();
 		QuerySYSKey();
@@ -650,7 +656,7 @@ NTSTATUS SSDTDeviceIoControlDispatcher(IN PDEVICE_OBJECT pDeviceObject, IN PIRP 
 		pIrp->IoStatus.Information = sizeof(REG_TO_CP);
 		IoCompleteRequest(pIrp, IO_NO_INCREMENT);
 		break;
-	case IOCTL_SSDT_FORBIDPROCESS_ADD://-----------------------------���ӽ�ֹ������
+	case IOCTL_SSDT_FORBIDPROCESS_ADD://-----------------------------增加禁止进程名
 		addProcesName = (PForbidProcessName)pIrp->AssociatedIrp.SystemBuffer;
 		PForbidProcess insertFP = (PForbidProcess)ExAllocatePool(NonPagedPool,sizeof(ForbidProcess));
 		RtlZeroMemory(insertFP,sizeof(ForbidProcess));
@@ -668,7 +674,7 @@ NTSTATUS SSDTDeviceIoControlDispatcher(IN PDEVICE_OBJECT pDeviceObject, IN PIRP 
 		pIrp->IoStatus.Information = 0;
 		IoCompleteRequest(pIrp, IO_NO_INCREMENT);
 		break;
-	case IOCTL_SSDT_FORBIDPROCESS_DELETE://----------------------------ɾ����ֹ������
+	case IOCTL_SSDT_FORBIDPROCESS_DELETE://----------------------------删除禁止进程名
 		deleteProcesName = (PForbidProcessName)pIrp->AssociatedIrp.SystemBuffer;
 		KdPrint(("delete ProcessName: %ws\n", deleteProcesName->ProcessName));
 		PLIST_ENTRY entry = NULL;
@@ -682,7 +688,7 @@ NTSTATUS SSDTDeviceIoControlDispatcher(IN PDEVICE_OBJECT pDeviceObject, IN PIRP 
 
 				KdPrint(("--SSDT----Entry IN delete"));
 				PForbidProcess fP = CONTAINING_RECORD(entry, ForbidProcess, listEntry);
-				int count = 0;//��ȵ���Ŀ
+				int count = 0;//相等的数目
 				for (int i = 0; i < deleteProcesName->length; i++)
 				{
 					if (deleteProcesName->ProcessName[i] == fP->ProcessName[i]){
@@ -707,7 +713,7 @@ NTSTATUS SSDTDeviceIoControlDispatcher(IN PDEVICE_OBJECT pDeviceObject, IN PIRP 
 		IoCompleteRequest(pIrp, IO_NO_INCREMENT);
 		break;
 
-	case IOCTL_SSDT_CLAER_BLACK_ILST://�������
+	case IOCTL_SSDT_CLAER_BLACK_ILST://清空链表
 		clear();
 		pIrp->IoStatus.Status = rtStatus;
 		pIrp->IoStatus.Information = 0;
@@ -729,13 +735,13 @@ VOID SSDTDriverUnload(IN PDRIVER_OBJECT pDriverObject)
 	IoDeleteSymbolicLink(&strSymbolLinkName);
 	IoDeleteDevice(pDriverObject->DeviceObject);
 
-	//��� Hook
+	//解除 Hook
 	UnInstallSSDTHook((ULONG)ZwQuerySystemInformation);
 	UnInstallSSDTHook((ULONG)ZwTerminateProcess);
-	//���ý��̻ص�Ϊȥ��״̬
+	//设置进程回调为去除状态
 	PsSetCreateProcessNotifyRoutineEx(CreateProcessNotifyEx, TRUE);
 
-	//���������Դ
+	//清除链表资源
 	clear();
 
 	if (pc2r != NULL)
@@ -746,7 +752,7 @@ VOID SSDTDriverUnload(IN PDRIVER_OBJECT pDriverObject)
 	DbgPrint("Out SSDT01DriverUnload !");
 }
 
-//���� uPID �����������б��е�����������ý����������б��в����ڣ��򷵻� -1
+//返回 uPID 进程在隐藏列表中的索引，如果该进程在隐藏列表中不存在，则返回 -1
 ULONG ValidateProcessNeedHide(ULONG uPID)
 {
 	ULONG i = 0;
@@ -765,7 +771,7 @@ ULONG ValidateProcessNeedHide(ULONG uPID)
 	return -1;
 }
 
-//���� uPID �����ڱ����б��е�����������ý����ڱ����б��в����ڣ��򷵻� -1
+//返回 uPID 进程在保护列表中的索引，如果该进程在保护列表中不存在，则返回 -1
 ULONG ValidateProcessNeedProtect(ULONG uPID)
 {
 	ULONG i = 0;
@@ -784,7 +790,7 @@ ULONG ValidateProcessNeedProtect(ULONG uPID)
 	return -1;
 }
 
-//�ڽ��������б��в����µĽ��� ID
+//在进程隐藏列表中插入新的进程 ID
 ULONG InsertHideProcess(ULONG uPID)
 {
 	KdPrint(("Insert Hide Process====>\n"));
@@ -797,7 +803,7 @@ ULONG InsertHideProcess(ULONG uPID)
 	return FALSE;
 }
 
-//�ӽ��������б����Ƴ����� ID
+//从进程隐藏列表中移除进程 ID
 ULONG RemoveHideProcess(ULONG uPID)
 {
 	KdPrint(("Remove Hide Process====>\n"));
@@ -810,7 +816,7 @@ ULONG RemoveHideProcess(ULONG uPID)
 	return FALSE;
 }
 
-//�ڽ��̱����б��в����µĽ��� ID
+//在进程保护列表中插入新的进程 ID
 ULONG InsertProtectProcess(ULONG uPID)
 {
 	KdPrint(("Insert Protect Process====>\n"));
@@ -824,7 +830,7 @@ ULONG InsertProtectProcess(ULONG uPID)
 	return FALSE;
 }
 
-//�ڽ��̱����б����Ƴ�һ������ ID
+//在进程保护列表中移除一个进程 ID
 ULONG RemoveProtectProcess(ULONG uPID)
 {
 	KdPrint(("Remove Protect Process====>\n"));
@@ -838,7 +844,7 @@ ULONG RemoveProtectProcess(ULONG uPID)
 	return FALSE;
 }
 
-//NEW��NtQuerySystemInformation
+//NEW的NtQuerySystemInformation
 NTSTATUS MyNtQuerySystemInformation(
 	__in SYSTEM_INFORMATION_CLASS SystemInformationClass,
 	__out_bcount_opt(SystemInformationLength) PVOID SystemInformation,
@@ -854,53 +860,53 @@ NTSTATUS MyNtQuerySystemInformation(
 
 	if (NT_SUCCESS(rtStatus)){
 		/*
-			1.ȷ����ǰQuery���ǽ�����Ϣ
-			2.��ȡ��ǰSystemInformation��PSYSTEM_PROCESS_INFORMATION
-			3.��ʼѭ����������PSYSTEM_PROCESS_INFORMATION��
-				3-1.��õ�ǰPROCESS_INFORMATION��UniqueProcessId
-				3-2.�жϵ�ǰCurrProcessId�Ƿ���Hide������
-				3-3.��Hide�����ڣ�
-					�ж�PrevProcessInfo�Ƿ�Ϊ�գ�Ҳ����˵���Ƿ��ǵ�һ��ProcessInfo
-					����ǣ��ͽ��˽�����Ϣ����Ϣ����Ĩ��
-					������ǣ���ȷ���˸տ�ʼ�����ͷ�����Ҫ���ص�ProcessInfo,Ĩ����
+			1.确定当前Query的是进程信息
+			2.提取当前SystemInformation的PSYSTEM_PROCESS_INFORMATION
+			3.开始循环遍历整个PSYSTEM_PROCESS_INFORMATION链
+				3-1.获得当前PROCESS_INFORMATION的UniqueProcessId
+				3-2.判断当前CurrProcessId是否在Hide数组内
+				3-3.在Hide数组内：
+					判断PrevProcessInfo是否为空，也就是说，是否是第一个ProcessInfo
+					如果是：就将此进程信息从信息链中抹除
+					如果不是：则确定了刚开始遍历就发现了要隐藏的ProcessInfo,抹除它
 					
-					����أ������ǲ��ǵ�һ��ProcessInfo��Ҫ�ж��Ƿ�����һ��ProcessInfo��
-					��Ϊ�в�ͬ�Ĵ�����ʽ��1)���� 2)��ǰֱ������/��
-				3-4.����Hide�����ڣ�
-					������ǰ������ִ��NextEntry
+					其次呢，无论是不是第一个ProcessInfo都要判断是否还有下一个ProcessInfo，
+					因为有不同的处理方式：1)跳过 2)当前直接置零/空
+				3-4.不在Hide数组内：
+					跳过当前，继续执行NextEntry
 			
 		*/
 
-		if (SystemProcessInformation == SystemInformationClass)//ȷ����ǰQuery���ǽ�����Ϣ
+		if (SystemProcessInformation == SystemInformationClass)//确定当前Query的是进程信息
 		{
 			PSYSTEM_PROCESS_INFORMATION pPrevProcessInfo = NULL;
 			PSYSTEM_PROCESS_INFORMATION pCurrProcessInfo = (PSYSTEM_PROCESS_INFORMATION)SystemInformation;
 
-			while (pCurrProcessInfo != NULL)//ȷ����ǰ���ʵĽ�����Ϣ��Ϊ��
+			while (pCurrProcessInfo != NULL)//确定当前访问的进程信息不为空
 			{
-				//��ȡ��ǰ������ SYSTEM_PROCESS_INFORMATION �ڵ�Ľ������ƺͽ��� ID
+				//获取当前遍历的 SYSTEM_PROCESS_INFORMATION 节点的进程名称和进程 ID
 				ULONG uPID = (ULONG)pCurrProcessInfo->UniqueProcessId;
-				UNICODE_STRING strTmpProcessName = pCurrProcessInfo->ImageName;//��ִ���ļ���
+				UNICODE_STRING strTmpProcessName = pCurrProcessInfo->ImageName;//可执行文件名
 
-				//�жϵ�ǰ��������������Ƿ�Ϊ��Ҫ���صĽ���
+				//判断当前遍历的这个进程是否为需要隐藏的进程
 				if (ValidateProcessNeedHide(uPID) != -1)
 				{
 					if (pPrevProcessInfo)
 					{
 						if (pCurrProcessInfo->NextEntryOffset)
 						{
-							//����ǰ�������(��Ҫ���صĽ���)�� SystemInformation ��ժ��(��������ƫ��ָ��ʵ��)
+							//将当前这个进程(即要隐藏的进程)从 SystemInformation 中摘除(更改链表偏移指针实现)
 							pPrevProcessInfo->NextEntryOffset += pCurrProcessInfo->NextEntryOffset;
 						}
 						else
 						{
-							//˵����ǰҪ���ص���������ǽ��������е����һ��
+							//说明当前要隐藏的这个进程是进程链表中的最后一个
 							pPrevProcessInfo->NextEntryOffset = 0;
 						}
 					}
 					else
 					{
-						//��һ���������ý��̾�����Ҫ���صĽ���
+						//第一个遍历到得进程就是需要隐藏的进程
 						if (pCurrProcessInfo->NextEntryOffset)
 						{
 							(PCHAR)SystemInformation += pCurrProcessInfo->NextEntryOffset;
@@ -912,10 +918,10 @@ NTSTATUS MyNtQuerySystemInformation(
 					}
 				}
 
-				//������һ�� SYSTEM_PROCESS_INFORMATION �ڵ�
+				//遍历下一个 SYSTEM_PROCESS_INFORMATION 节点
 				pPrevProcessInfo = pCurrProcessInfo;
 
-				//��������
+				//遍历结束
 				if (pCurrProcessInfo->NextEntryOffset)
 				{
 					pCurrProcessInfo = (PSYSTEM_PROCESS_INFORMATION)(((PCHAR)pCurrProcessInfo) + pCurrProcessInfo->NextEntryOffset);
@@ -931,7 +937,7 @@ NTSTATUS MyNtQuerySystemInformation(
 	return rtStatus;
 }
 
-//NEW��NtTerminateProcess
+//NEW的NtTerminateProcess
 NTSTATUS MyNtTerminateProcess(
 	__in_opt HANDLE ProcessHandle,
 	__in NTSTATUS ExitStatus
@@ -946,16 +952,16 @@ NTSTATUS MyNtTerminateProcess(
 	ANSI_STRING strProcName;
 
 	/*
-		1.ͨ��ObReferenceObjectByHandle��õ�ǰ���̾����EPROCESS;
-		2.����packUp����ZwTerminateProcess����ָ��;
-		3.��EPROCESS��ý��̵�PID;
-		4.��鵱ǰPID�Ƿ���Terminate���У�
-		4-1.�ڵĻ����ж��Ƿ�Ϊϵͳ���̣���ΪPsGetCurrentProcess��õ���ϵͳ����
-		�������Ǿ��÷�����Ȩ�ޣ�
-		4-2.���ڵĻ������þɵ�ZwTerminateProcess����
+		1.通过ObReferenceObjectByHandle获得当前进程句柄的EPROCESS;
+		2.导出packUp过的ZwTerminateProcess函数指针;
+		3.由EPROCESS获得进程的PID;
+		4.检查当前PID是否在Terminate表中：
+		4-1.在的话：判断是否为系统进程，因为PsGetCurrentProcess获得的是系统进程
+		若不是那就让返回无权限；
+		4-2.不在的话：调用旧的ZwTerminateProcess函数
 		*/
 
-	//ͨ�����̾������øý�������Ӧ�� FileObject �������������ǽ��̶�����Ȼ��õ��� EPROCESS ����
+	//通过进程句柄来获得该进程所对应的 FileObject 对象，由于这里是进程对象，自然获得的是 EPROCESS 对象
 	rtStatus = ObReferenceObjectByHandle(ProcessHandle, FILE_READ_DATA, NULL, KernelMode, &pEProcess, NULL);
 
 	if (!NT_SUCCESS(rtStatus))
@@ -963,33 +969,33 @@ NTSTATUS MyNtTerminateProcess(
 		return rtStatus;
 	}
 
-	//���� SSDT ��ԭ���� NtTerminateProcess ��ַ
+	//保存 SSDT 中原来的 NtTerminateProcess 地址
 	pOldNtTerminateProcess = (NTTERMINATEPROCESS)oldSysServiceAddr[SYSCALL_INDEX(ZwTerminateProcess)];
 
-	//ͨ���ú������Ի�ȡ���������ƺͽ��� ID���ú������ں���ʵ���ǵ�����(�� WRK �п��Կ���)
-	//���� ntddk.h �в�û�е�����������Ҫ�Լ���������ʹ��
+	//通过该函数可以获取到进程名称和进程 ID，该函数在内核中实质是导出的(在 WRK 中可以看到)
+	//但是 ntddk.h 中并没有到处，所以需要自己声明才能使用
 
 	uPID = (ULONG)PsGetProcessId(pEProcess);
 	pStrProcName = (PCHAR)PsGetProcessImageFileName(pEProcess);
 
 	KdPrint(("-----SSDT------ImageFile Name: %s\n", pStrProcName));
 
-	//ͨ������������ʼ��һ�� ASCII �ַ���
+	//通过进程名来初始化一个 ASCII 字符串
 	RtlInitAnsiString(&strProcName, pStrProcName);
 
-	//���Ҫ�����Ľ������ܱ������б��У�
+	//如果要结束的进程在受保护的列表中，
 	if (ValidateProcessNeedProtect(uPID) != -1)
 	{
 		KdPrint(("ValidateProcessNeedProtect Exist------>\n"));
-		//ȷ�������߽����ܹ�����(������Ҫ��ָ taskmgr.exe)
+		//确保调用者进程能够结束(这里主要是指 taskmgr.exe)
 		if (uPID != (ULONG)PsGetProcessId(PsGetCurrentProcess()))
 		{
-			//����ý������������ĵĽ��̵Ļ����򷵻�Ȩ�޲������쳣����
+			//如果该进程是所保护的的进程的话，则返回权限不够的异常即可
 			return STATUS_ACCESS_DENIED;
 		}
 	}
 
-	//���ڷǱ����Ľ��̿���ֱ�ӵ���ԭ�� SSDT �е� NtTerminateProcess ����������
+	//对于非保护的进程可以直接调用原来 SSDT 中的 NtTerminateProcess 来结束进程
 	rtStatus = pOldNtTerminateProcess(ProcessHandle, ExitStatus);
 
 	return rtStatus;
