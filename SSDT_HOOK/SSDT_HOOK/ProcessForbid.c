@@ -1,11 +1,16 @@
 
+/*
+ * @author Yue 
+ *
+ */
+
 #include "ProcessForbid.h"
 
 extern LIST_ENTRY ForbidProcessList;
 
 extern KSPIN_LOCK ForbidProcessListLock;
 
-//插入指定进程名进入进程进程链
+//虏氓脠毛脰赂露篓陆酶鲁脤脙没陆酶脠毛陆酶鲁脤陆酶鲁脤脕麓
 BOOLEAN InsertForbidProcessList(PForbidProcess pFP){
 	BOOLEAN inserted = FALSE;
 	KLOCK_QUEUE_HANDLE handle;
@@ -18,7 +23,7 @@ BOOLEAN InsertForbidProcessList(PForbidProcess pFP){
 	return inserted;
 }
 
-//移除指定进程名
+//脪脝鲁媒脰赂露篓陆酶鲁脤脙没
 BOOLEAN RemoveForbidProcessList(PForbidProcess pFP){
 	BOOLEAN removed = FALSE;
 	KLOCK_QUEUE_HANDLE handle;
