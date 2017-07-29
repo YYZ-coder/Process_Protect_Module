@@ -4,8 +4,12 @@
 #include <ntddk.h>
 #include <stdlib.h>
 
+/*
+ * @author Yue 
+ *
+ */
 
-//CPÓÃSSDT´Ó×¢²á±í¶ÁµÄÊý¾Ý
+//CPç”¨SSDTä»Žæ³¨å†Œè¡¨è¯»çš„æ•°æ®
 typedef struct _REG_TO_CP{
 	CHAR dbName[10];
 	CHAR dbHost[10];
@@ -13,19 +17,19 @@ typedef struct _REG_TO_CP{
 	CHAR sysPassword[20];
 }REG_TO_CP,*PREG_TO_CP;
 
-//R3·¢ËÍ¸øSSDT£¬²¢ÈÃÆä´æÈë×¢²á±íÖÐµÄÊý¾Ý
+//R3å‘é€ç»™SSDTï¼Œå¹¶è®©å…¶å­˜å…¥æ³¨å†Œè¡¨ä¸­çš„æ•°æ®
 typedef struct _R3_TO_REG{
-	//Êý¾Ý¿âHostÃû,Êý¾Ý¿âÃû
+	//æ•°æ®åº“Hostå,æ•°æ®åº“å
 	WCHAR dbHost[10];
 	WCHAR dbName[10];
-	//ÏµÍ³¹ÜÀíÔ±ÕË»§
+	//ç³»ç»Ÿç®¡ç†å‘˜è´¦æˆ·
 	WCHAR sysAdmin[10];
 	WCHAR sysPassword[20];
 }R3_TO_REG,*PR3_TO_REG;
 
-//½«ÕâËÄ¸ö²ÎÊý·¢ËÍ¸øR3
-//USER,PASSWORD	 ´ÓCP»ñµÃ;
-//HOST,DBNAME	 ´Ó×¢²á±í¶ÁµÃ.
+//å°†è¿™å››ä¸ªå‚æ•°å‘é€ç»™R3
+//USER,PASSWORD	 ä»ŽCPèŽ·å¾—;
+//HOST,DBNAME	 ä»Žæ³¨å†Œè¡¨è¯»å¾—.
 typedef struct _CP_TO_R3{
 	int  userLen;
 	int  passLen;
