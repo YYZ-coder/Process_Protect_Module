@@ -1,9 +1,13 @@
 #ifndef SSDT_HOOK_H
 #define SSDT_HOOK_H
 
-
 #include <ntddk.h>
 #include <stdlib.h>
+
+/*
+ * @author Yue 
+ *
+ */
 
 #define PAGEDCODE code_seg("PAGE")
 #define LOCKEDCODE code_seg()
@@ -17,79 +21,79 @@
 
 #define MAX_PROCESS_ARRARY_LENGTH		1024
 
-//¶¨Òå SSDT(ÏµÍ³·şÎñÃèÊö±í) ÖĞ·şÎñ¸öÊıµÄ×î´óÊıÄ¿
-//ÕâÀï¶¨ÒåÎª 1024 ¸ö£¬Êµ¼ÊÉÏÔÚ XP SP3 ÊÇ 0x0128 ¸ö
+//å®šä¹‰ SSDT(ç³»ç»ŸæœåŠ¡æè¿°è¡¨) ä¸­æœåŠ¡ä¸ªæ•°çš„æœ€å¤§æ•°ç›®
+//è¿™é‡Œå®šä¹‰ä¸º 1024 ä¸ªï¼Œå®é™…ä¸Šåœ¨ XP SP3 æ˜¯ 0x0128 ä¸ª
 #define MAX_SYSTEM_SERVICE_NUMBER 1024
 
-//¸ù¾İ Zw_ServiceFunction »ñÈ¡ Zw_ServiceFunction ÔÚ SSDT ÖĞËù¶ÔÓ¦µÄ·şÎñµÄË÷ÒıºÅ
-//Í¬£º mov eax (Ë÷ÒıºÅ)   eax
+//æ ¹æ® Zw_ServiceFunction è·å– Zw_ServiceFunction åœ¨ SSDT ä¸­æ‰€å¯¹åº”çš„æœåŠ¡çš„ç´¢å¼•å·
+//åŒï¼š mov eax (ç´¢å¼•å·)   eax
 #define SYSCALL_INDEX(ServiceFunction) \
 	(*(PULONG)((PUCHAR)ServiceFunction + 1))
 
-//ÉùÃ÷NTKERNELAPI
+//å£°æ˜NTKERNELAPI
 NTKERNELAPI
 NTSTATUS
 PsLookupProcessByProcessId(HANDLE Id, PEPROCESS *Process);
 
 
-//¸ù¾İ Zw_ServiceFunction À´»ñµÃ·şÎñÔÚ SSDT ÖĞµÄË÷ÒıºÅ£¬
-//È»ºóÔÙÍ¨¹ı¸ÃË÷ÒıºÅÀ´»ñÈ¡ Nt_ServiceFunctionµÄµØÖ·
+//æ ¹æ® Zw_ServiceFunction æ¥è·å¾—æœåŠ¡åœ¨ SSDT ä¸­çš„ç´¢å¼•å·ï¼Œ
+//ç„¶åå†é€šè¿‡è¯¥ç´¢å¼•å·æ¥è·å– Nt_ServiceFunctionçš„åœ°å€
 //
 #define SYSCALL_FUNCTION(ServiceFunction) \
 	KeServiceDescriptorTable->ntoskrnl.ServiceTableBase[SYSCALL_INDEX(ServiceFunction)]
 
-//¶¨ÒåSSDT½á¹¹
+//å®šä¹‰SSDTç»“æ„
 typedef struct _KSYSTEM_SERVICE_TABLE
 {
-	PULONG  ServiceTableBase;					// SSDT (System Service Dispatch Table)µÄ»ùµØÖ·
-	PULONG  ServiceCounterTableBase;			// ÓÃÓÚ checked builds, °üº¬ SSDT ÖĞÃ¿¸ö·şÎñ±»µ÷ÓÃµÄ´ÎÊı
-	ULONG   NumberOfService;					// ·şÎñº¯ÊıµÄ¸öÊı, NumberOfService * 4 ¾ÍÊÇÕû¸öµØÖ·±íµÄ´óĞ¡
-	ULONG   ParamTableBase;						// SSPT(System Service Parameter Table)µÄ»ùµØÖ·
+	PULONG  ServiceTableBase;					// SSDT (System Service Dispatch Table)çš„åŸºåœ°å€
+	PULONG  ServiceCounterTableBase;			// ç”¨äº checked builds, åŒ…å« SSDT ä¸­æ¯ä¸ªæœåŠ¡è¢«è°ƒç”¨çš„æ¬¡æ•°
+	ULONG   NumberOfService;					// æœåŠ¡å‡½æ•°çš„ä¸ªæ•°, NumberOfService * 4 å°±æ˜¯æ•´ä¸ªåœ°å€è¡¨çš„å¤§å°
+	ULONG   ParamTableBase;						// SSPT(System Service Parameter Table)çš„åŸºåœ°å€
 
 } KSYSTEM_SERVICE_TABLE, *PKSYSTEM_SERVICE_TABLE;
 
 
 typedef struct _KSERVICE_TABLE_DESCRIPTOR
 {
-	KSYSTEM_SERVICE_TABLE   ntoskrnl;			// ntoskrnl.exe µÄ·şÎñº¯Êı
-	KSYSTEM_SERVICE_TABLE   win32k;				// win32k.sys µÄ·şÎñº¯Êı(GDI32.dll/User32.dll µÄÄÚºËÖ§³Ö)
+	KSYSTEM_SERVICE_TABLE   ntoskrnl;			// ntoskrnl.exe çš„æœåŠ¡å‡½æ•°
+	KSYSTEM_SERVICE_TABLE   win32k;				// win32k.sys çš„æœåŠ¡å‡½æ•°(GDI32.dll/User32.dll çš„å†…æ ¸æ”¯æŒ)
 	KSYSTEM_SERVICE_TABLE   notUsed1;
 	KSYSTEM_SERVICE_TABLE   notUsed2;
 
 } KSERVICE_TABLE_DESCRIPTOR, *PKSERVICE_TABLE_DESCRIPTOR;
 
-//Ò»Ğ©³£ÓÃ½á¹¹ÌåµÄÉùÃ÷
+//ä¸€äº›å¸¸ç”¨ç»“æ„ä½“çš„å£°æ˜
 typedef struct _SYSTEM_THREAD_INFORMATION
 {
-	LARGE_INTEGER	KernelTime;		//Ïß³ÌÔÚÄÚºËÖ´ĞĞÊ±¼ä
-	LARGE_INTEGER	UserTime;		//Ïß³ÌÔÚÓÃ»§Ä£Ê½Ö´ĞĞÊ±¼ä
-	LARGE_INTEGER	CreateTime;		//Ïß³Ì´´½¨Ê±¼ä
-	ULONG			WaitTime;		//Ïß³Ì×ÜµÄµÈ´ıÊ±¼ä
-	PVOID			StartAddress;	//Ïß³ÌÆğÊ¼µØÖ·
-	CLIENT_ID		ClientId;		//½ø³ÌºÍÏß³Ì¼ø¶¨Ìå
-	KPRIORITY		Priority;		//Ïß³ÌÓÅÏÈ¼¶
-	LONG			BasePriority;	//Ïß³Ì»ù´¡ÓÅÏÈ¼¶
-	ULONG			ContextSwitches;//ÓÉÏß³ÌÖ´ĞĞµÄÉÏÏÂÎÄ½»»»´ÎÊı
-	ULONG			ThreadState;	//µ±Ç°Ïß³Ì×´Ì¬
-	ULONG			WaitReason;		//µÈ´ıÔ­Òò
+	LARGE_INTEGER	KernelTime;		//çº¿ç¨‹åœ¨å†…æ ¸æ‰§è¡Œæ—¶é—´
+	LARGE_INTEGER	UserTime;		//çº¿ç¨‹åœ¨ç”¨æˆ·æ¨¡å¼æ‰§è¡Œæ—¶é—´
+	LARGE_INTEGER	CreateTime;		//çº¿ç¨‹åˆ›å»ºæ—¶é—´
+	ULONG			WaitTime;		//çº¿ç¨‹æ€»çš„ç­‰å¾…æ—¶é—´
+	PVOID			StartAddress;	//çº¿ç¨‹èµ·å§‹åœ°å€
+	CLIENT_ID		ClientId;		//è¿›ç¨‹å’Œçº¿ç¨‹é‰´å®šä½“
+	KPRIORITY		Priority;		//çº¿ç¨‹ä¼˜å…ˆçº§
+	LONG			BasePriority;	//çº¿ç¨‹åŸºç¡€ä¼˜å…ˆçº§
+	ULONG			ContextSwitches;//ç”±çº¿ç¨‹æ‰§è¡Œçš„ä¸Šä¸‹æ–‡äº¤æ¢æ¬¡æ•°
+	ULONG			ThreadState;	//å½“å‰çº¿ç¨‹çŠ¶æ€
+	ULONG			WaitReason;		//ç­‰å¾…åŸå› 
 
 } SYSTEM_THREAD_INFORMATION, *PSYSTEM_THREAD_INFORMATION;
 
-typedef struct _SYSTEM_PROCESS_INFORMATION //win8ÖĞsize = 184
+typedef struct _SYSTEM_PROCESS_INFORMATION //win8ä¸­size = 184
 {
-	ULONG			NextEntryOffset;			//´ÓÊä³ö»º³åÇøÈ¥ÏÂÒ»¸ö½ø³ÌÈë¿ÚµÄÆ«ÒÆ
-	ULONG			NumberOfThreads;			//½ø³ÌµÄÏß³ÌÊıÁ¿
+	ULONG			NextEntryOffset;			//ä»è¾“å‡ºç¼“å†²åŒºå»ä¸‹ä¸€ä¸ªè¿›ç¨‹å…¥å£çš„åç§»
+	ULONG			NumberOfThreads;			//è¿›ç¨‹çš„çº¿ç¨‹æ•°é‡
 	LARGE_INTEGER	SpareLi1;					//Reserved[0]
 	LARGE_INTEGER	SpareLi2;					//Reserved[1]
 	LARGE_INTEGER	SpareLi3;					//Reserved[2]
-	LARGE_INTEGER	CreateTime;					//½ø³Ì´´½¨Ê±¼ä,<=100ns
-	LARGE_INTEGER	UserTime;					//ÓÃ»§Ä£Ê½µÄÓĞĞ§Ö´ĞĞÊ±¼ä
-	LARGE_INTEGER	KernelTime;					//ÄÚºËÄ£Ê½µÄÓĞĞ§Ö´ĞĞÊ±¼ä
-	UNICODE_STRING	ImageName;					//½ø³ÌÃû£¬»ùÓÚ¿ÉÖ´ĞĞÎÄ¼şÃû
-	KPRIORITY		BasePriority;				//½ø³ÌÆğÊ¼ÓÅÏÈ
-	HANDLE			UniqueProcessId;			//Î¨Ò»µÄ½ø³Ì±êÊ¶
-	HANDLE			InheritedFromUniqueProcessId;	//´´½¨ÕßµÄ±êÊ¶
-	ULONG			HandleCount;				//´ò¿ªµÄ¾ä±úµÄÊıÁ¿
+	LARGE_INTEGER	CreateTime;					//è¿›ç¨‹åˆ›å»ºæ—¶é—´,<=100ns
+	LARGE_INTEGER	UserTime;					//ç”¨æˆ·æ¨¡å¼çš„æœ‰æ•ˆæ‰§è¡Œæ—¶é—´
+	LARGE_INTEGER	KernelTime;					//å†…æ ¸æ¨¡å¼çš„æœ‰æ•ˆæ‰§è¡Œæ—¶é—´
+	UNICODE_STRING	ImageName;					//è¿›ç¨‹åï¼ŒåŸºäºå¯æ‰§è¡Œæ–‡ä»¶å
+	KPRIORITY		BasePriority;				//è¿›ç¨‹èµ·å§‹ä¼˜å…ˆ
+	HANDLE			UniqueProcessId;			//å”¯ä¸€çš„è¿›ç¨‹æ ‡è¯†
+	HANDLE			InheritedFromUniqueProcessId;	//åˆ›å»ºè€…çš„æ ‡è¯†
+	ULONG			HandleCount;				//æ‰“å¼€çš„å¥æŸ„çš„æ•°é‡
 	ULONG			SessionId;
 	ULONG_PTR		PageDirectoryBase;
 	SIZE_T			PeakVirtualSize;
@@ -209,8 +213,8 @@ NTSYSAPI NTSTATUS NTAPI ZwQuerySystemInformation(
 	__out_opt PULONG ReturnLength);
 
 /*
-±íÊ¾NTTERMINATEPROCESSÎªÒ»ÖÖÖ¸Ïòº¯ÊıµÄÖ¸ÕëÀàĞÍµÄÃû×Ö¡£
-ÒªÊ¹ÓÃÆä£¬Ö»ĞèÖ±½ÓÊ¹ÓÃNTTERMINATEPROCESS¼´¿É
+è¡¨ç¤ºNTTERMINATEPROCESSä¸ºä¸€ç§æŒ‡å‘å‡½æ•°çš„æŒ‡é’ˆç±»å‹çš„åå­—ã€‚
+è¦ä½¿ç”¨å…¶ï¼Œåªéœ€ç›´æ¥ä½¿ç”¨NTTERMINATEPROCESSå³å¯
 */
 typedef NTSTATUS (*NTQUERYSYSTEMINFORMATION)(SYSTEM_INFORMATION_CLASS,
 	__out_bcount_opt(SystemInformationLength) PVOID,ULONG,__out_opt PULONG);
@@ -228,26 +232,26 @@ NTSTATUS MyNtTerminateProcess(
 	__in NTSTATUS ExitStatus
 	);
 
-//¶¨ÒåÒ»¸öÖ¸Ïò¹Ì¶¨º¯ÊıµÄÖ¸Õë±äÁ¿,ÓÃÓÚ±£´æÀÏµÄº¯ÊıµØÖ·
+//å®šä¹‰ä¸€ä¸ªæŒ‡å‘å›ºå®šå‡½æ•°çš„æŒ‡é’ˆå˜é‡,ç”¨äºä¿å­˜è€çš„å‡½æ•°åœ°å€
 NTTERMINATEPROCESS pOldNtTerminateProcess;
 
 NTQUERYSYSTEMINFORMATION pOldNtQuerySystemInformation;
 
 
-//»ñµÃ½ø³ÌÃû(»ùÓÚ¿ÉÖ´ĞĞÎÄ¼şµÄÃû×Ö xxx.exe)
+//è·å¾—è¿›ç¨‹å(åŸºäºå¯æ‰§è¡Œæ–‡ä»¶çš„åå­— xxx.exe)
 PUCHAR PsGetProcessImageFileName(__in PEPROCESS Process);
 
 
-ULONG g_PIDHideArray[MAX_PROCESS_ARRARY_LENGTH];//Òş²Ø½ø³ÌIDÊı×é
-ULONG g_PIDProtectArray[MAX_PROCESS_ARRARY_LENGTH];//±£»¤½ø³ÌIDÊı×é
+ULONG g_PIDHideArray[MAX_PROCESS_ARRARY_LENGTH];//éšè—è¿›ç¨‹IDæ•°ç»„
+ULONG g_PIDProtectArray[MAX_PROCESS_ARRARY_LENGTH];//ä¿æŠ¤è¿›ç¨‹IDæ•°ç»„
 
-//Òş²ØµÄºÍÊÜ±£»¤µÄÊıÁ¿
+//éšè—çš„å’Œå—ä¿æŠ¤çš„æ•°é‡
 ULONG g_currHideArrayLen = 0;
 ULONG g_currProtectArrayLen = 0;
 
 NTSTATUS DriverEntry(IN PDRIVER_OBJECT pDriverObject,IN PUNICODE_STRING pRegistryPath);
 
-NTSTATUS SSDTGeneralDispatcher(IN PDEVICE_OBJECT pDeviceObject, IN PIRP pIrp);//·Ö·¢º¯ÊıÉùÃ÷
+NTSTATUS SSDTGeneralDispatcher(IN PDEVICE_OBJECT pDeviceObject, IN PIRP pIrp);//åˆ†å‘å‡½æ•°å£°æ˜
 NTSTATUS SSDTCreateDispatcher(IN PDEVICE_OBJECT pDeviceObject, IN PIRP pIrp);
 NTSTATUS SSDTCloseDispatcher(IN PDEVICE_OBJECT pDeviceObject, IN PIRP pIrp);
 NTSTATUS SSDTReadDispatcher(IN PDEVICE_OBJECT pDeviceObject, IN PIRP pIrp);
@@ -256,43 +260,43 @@ NTSTATUS SSDTDeviceIoControlDispatcher(IN PDEVICE_OBJECT pDeviceObject, IN PIRP 
 
 VOID SSDTDriverUnload(IN PDRIVER_OBJECT pDriverObject);
 
-//ÓÃÀ´±£´æ SSDT ÖĞËùÓĞµÄ¾ÉµÄ·şÎñº¯ÊıµÄµØÖ·
+//ç”¨æ¥ä¿å­˜ SSDT ä¸­æ‰€æœ‰çš„æ—§çš„æœåŠ¡å‡½æ•°çš„åœ°å€
 ULONG oldSysServiceAddr[MAX_SYSTEM_SERVICE_NUMBER];
 
-//½ûÖ¹Ğ´Èë±£»¤£¬Ò²¾ÍÊÇ»Ö¸´µ½Ö»¶Á
+//ç¦æ­¢å†™å…¥ä¿æŠ¤ï¼Œä¹Ÿå°±æ˜¯æ¢å¤åˆ°åªè¯»
 VOID DisableWriteProtect(ULONG oldAttr);
 
-//ÔÊĞíĞ´Èë±£»¤£¬Ò²¾ÍÊÇÉèÖÃÎª¿ÉĞ´
+//å…è®¸å†™å…¥ä¿æŠ¤ï¼Œä¹Ÿå°±æ˜¯è®¾ç½®ä¸ºå¯å†™
 VOID EnableWriteProtect(PULONG pOldAttr);
 
-//±¸·İ SSDT ÖĞËùÓĞÏµÍ³·şÎñµÄµØÖ·
+//å¤‡ä»½ SSDT ä¸­æ‰€æœ‰ç³»ç»ŸæœåŠ¡çš„åœ°å€
 VOID BackupSysServicesTable();
 
-//°²×° Hook
+//å®‰è£… Hook
 NTSTATUS InstallSSDTHook(ULONG oldService, ULONG newService);
 
-//½â³ı Hook
+//è§£é™¤ Hook
 NTSTATUS UnInstallSSDTHook(ULONG oldService);
 
-//ÑéÖ¤ uPID Ëù´ú±íµÄ½ø³ÌÊÇ·ñ´æÔÚÓÚÒş²Ø½ø³ÌÁĞ±íÖĞ£¬¼´ÅĞ¶Ï uPID Õâ¸ö½ø³ÌÊÇ·ñĞèÒªÒş²Ø
+//éªŒè¯ uPID æ‰€ä»£è¡¨çš„è¿›ç¨‹æ˜¯å¦å­˜åœ¨äºéšè—è¿›ç¨‹åˆ—è¡¨ä¸­ï¼Œå³åˆ¤æ–­ uPID è¿™ä¸ªè¿›ç¨‹æ˜¯å¦éœ€è¦éšè—
 ULONG ValidateProcessNeedHide(ULONG uPID);
 
-//ÑéÖ¤ uPID Ëù´ú±íµÄ½ø³ÌÊÇ·ñ´æÔÚÓÚ±£»¤½ø³ÌÁĞ±íÖĞ£¬¼´ÅĞ¶Ï uPID Õâ¸ö½ø³ÌÊÇ·ñĞèÒª±£»¤
+//éªŒè¯ uPID æ‰€ä»£è¡¨çš„è¿›ç¨‹æ˜¯å¦å­˜åœ¨äºä¿æŠ¤è¿›ç¨‹åˆ—è¡¨ä¸­ï¼Œå³åˆ¤æ–­ uPID è¿™ä¸ªè¿›ç¨‹æ˜¯å¦éœ€è¦ä¿æŠ¤
 ULONG ValidateProcessNeedProtect(ULONG uPID);
 
-//ÍùÒş²Ø½ø³ÌÁĞ±íÖĞ²åÈë uPID
+//å¾€éšè—è¿›ç¨‹åˆ—è¡¨ä¸­æ’å…¥ uPID
 ULONG InsertHideProcess(ULONG uPID);
 
-//´ÓÒş²Ø½ø³ÌÁĞ±íÖĞÒÆ³ı uPID
+//ä»éšè—è¿›ç¨‹åˆ—è¡¨ä¸­ç§»é™¤ uPID
 ULONG RemoveHideProcess(ULONG uPID);
 
-//Íù±£»¤½ø³ÌÁĞ±íÖĞ²åÈë uPID
+//å¾€ä¿æŠ¤è¿›ç¨‹åˆ—è¡¨ä¸­æ’å…¥ uPID
 ULONG InsertProtectProcess(ULONG uPID);
 
-//´ÓÒş²Ø½ø³ÌÁĞ±íÖĞÒÆ³ı uPID
+//ä»éšè—è¿›ç¨‹åˆ—è¡¨ä¸­ç§»é™¤ uPID
 ULONG RemoveProtectProcess(ULONG uPID);
 
-//×¢²á½ø³Ì»Øµ÷º¯Êı
+//æ³¨å†Œè¿›ç¨‹å›è°ƒå‡½æ•°
 VOID CreateProcessNotifyEx(
 __inout PEPROCESS  Process,
 __in HANDLE  ProcessId,
