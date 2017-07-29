@@ -1,6 +1,11 @@
 #include "Regedit_Operation.h"
 #include <tchar.h>
 
+/*
+ * @author Yue 
+ *
+ */
+
 #define  MY_REG_SOFTWARE_KEY_NAME		L"\\Registry\\Machine\\Software\\Owl"
 #define  MY_REG_SOFTWARE_KEY_DB			L"\\Registry\\Machine\\Software\\Owl\\db"
 #define	 MY_REG_SOFTWARE_KEY_SYS		L"\\Registry\\Machine\\Software\\Owl\\sys"
@@ -11,22 +16,22 @@ extern PREG_TO_CP pRTC;
 
 extern BOOLEAN SkyEyeGetReg;
 
-//´´½¨¼ü
+//åˆ›å»ºé”®
 NTSTATUS CreateKey(){
 	NTSTATUS Status = STATUS_SUCCESS;
-	//----------------Ö÷¼ü---------------
+	//----------------ä¸»é”®---------------
 	UNICODE_STRING RegUnicodeString;
 	HANDLE hRegister;
 	ULONG  ulResult;
-	//³õÊ¼»¯UNICODE_STRING×Ö·û´®
+	//åˆå§‹åŒ–UNICODE_STRINGå­—ç¬¦ä¸²
 	RtlInitUnicodeString(&RegUnicodeString,MY_REG_SOFTWARE_KEY_NAME);
 	OBJECT_ATTRIBUTES objectAttributes;
-	//³õÊ¼»¯objectAttributes
+	//åˆå§‹åŒ–objectAttributes
 	InitializeObjectAttributes(&objectAttributes, &RegUnicodeString, OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE, NULL, NULL);
-	//´´½¨»ò´ø¿ª×¢²á±íÏîÄ¿
+	//åˆ›å»ºæˆ–å¸¦å¼€æ³¨å†Œè¡¨é¡¹ç›®
 	NTSTATUS ntStatus = ZwCreateKey(&hRegister,KEY_ALL_ACCESS,&objectAttributes,0,NULL,REG_OPTION_NON_VOLATILE,&ulResult);
 	if (NT_SUCCESS(ntStatus)){
-		//ÅĞ¶ÏÊÇ±»ĞÂ´´½¨£¬»¹ÊÇÒÑ¾­±»´´½¨
+		//åˆ¤æ–­æ˜¯è¢«æ–°åˆ›å»ºï¼Œè¿˜æ˜¯å·²ç»è¢«åˆ›å»º
 		if (ulResult == REG_CREATED_NEW_KEY){
 			KdPrint(("The register item is created\n"));
 		}else if (ulResult == REG_OPENED_EXISTING_KEY){
@@ -34,18 +39,18 @@ NTSTATUS CreateKey(){
 		}
 	}
 
-	//------------------×ÓÏî-1----------------
+	//------------------å­é¡¹-1----------------
 	UNICODE_STRING subRegUnicodeString;
 	HANDLE hSubRegister;
-	//³õÊ¼»¯UNICODE_STRING×Ö·û´®
+	//åˆå§‹åŒ–UNICODE_STRINGå­—ç¬¦ä¸²
 	RtlInitUnicodeString(&subRegUnicodeString,L"db");
 	OBJECT_ATTRIBUTES subObjectAttributes;
-	//³õÊ¼»¯subObjectAttributes
+	//åˆå§‹åŒ–subObjectAttributes
 	InitializeObjectAttributes(&subObjectAttributes,&subRegUnicodeString,OBJ_CASE_INSENSITIVE, hRegister,NULL);
-	//´´½¨»ò´ò¿ª×¢²á±íÏîÄ¿
+	//åˆ›å»ºæˆ–æ‰“å¼€æ³¨å†Œè¡¨é¡¹ç›®
 	ntStatus = ZwCreateKey(&hSubRegister,KEY_ALL_ACCESS,&subObjectAttributes,0,NULL,REG_OPTION_NON_VOLATILE,&ulResult);
 	if (NT_SUCCESS(ntStatus)){
-		//ÅĞ¶ÏÊÇ±»ĞÂ´´½¨£¬»¹ÊÇÒÑ¾­±»´´½¨
+		//åˆ¤æ–­æ˜¯è¢«æ–°åˆ›å»ºï¼Œè¿˜æ˜¯å·²ç»è¢«åˆ›å»º
 		if (ulResult == REG_CREATED_NEW_KEY){
 			KdPrint(("The sub register db is created\n"));
 		}else if (ulResult == REG_OPENED_EXISTING_KEY){
@@ -53,18 +58,18 @@ NTSTATUS CreateKey(){
 		}
 	}
 
-	//------------------×ÓÏî-2----------------
+	//------------------å­é¡¹-2----------------
 	UNICODE_STRING subRegisterString;
 	HANDLE hSubRegister0;
-	//³õÊ¼»¯String
+	//åˆå§‹åŒ–String
 	RtlInitUnicodeString(&subRegisterString,L"sys");
 	OBJECT_ATTRIBUTES subObjectAttribute0;
-	//³õÊ¼»¯subObjectAttribute
+	//åˆå§‹åŒ–subObjectAttribute
 	InitializeObjectAttributes(&subObjectAttribute0,&subRegisterString,OBJ_CASE_INSENSITIVE,hRegister,NULL);
-	//´´½¨»ò´ó¿ª×¢²á±íÏîÄ¿
+	//åˆ›å»ºæˆ–å¤§å¼€æ³¨å†Œè¡¨é¡¹ç›®
 	ntStatus = ZwCreateKey(&hSubRegister0,KEY_ALL_ACCESS,&subObjectAttribute0,0,NULL,REG_OPTION_NON_VOLATILE,&ulResult);
 	if (NT_SUCCESS(ntStatus)){
-		//ÅĞ¶ÏÊÇ±»ĞÂ´´½¨£¬»¹ÊÇÒÑ¾­±»´´½¨
+		//åˆ¤æ–­æ˜¯è¢«æ–°åˆ›å»ºï¼Œè¿˜æ˜¯å·²ç»è¢«åˆ›å»º
 		if (ulResult == REG_CREATED_NEW_KEY){
 			KdPrint(("The sub register sys is created\n"));
 		}
@@ -73,14 +78,14 @@ NTSTATUS CreateKey(){
 		}
 	}
 
-	//¹Ø±Õ×¢²á±í¾ä±ú
+	//å…³é—­æ³¨å†Œè¡¨å¥æŸ„
 	ZwClose(hRegister);
 	ZwClose(hSubRegister);
 	ZwClose(hSubRegister0);
 	return Status;
 }
 
-//ÉèÖÃ×¢²á±íÏîDB¼üÖµ
+//è®¾ç½®æ³¨å†Œè¡¨é¡¹DBé”®å€¼
 NTSTATUS SetDBKey(WCHAR *dbname,WCHAR *dbhost){
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 
@@ -88,14 +93,14 @@ NTSTATUS SetDBKey(WCHAR *dbname,WCHAR *dbhost){
 	UNICODE_STRING RegUnicodeString;
 	HANDLE hRegister;
 
-	//³õÊ¼»¯UNICODE_STRING×Ö·û´®
+	//åˆå§‹åŒ–UNICODE_STRINGå­—ç¬¦ä¸²
 	RtlInitUnicodeString(&RegUnicodeString, MY_REG_SOFTWARE_KEY_DB);
 	OBJECT_ATTRIBUTES objectAttributes;
-	//³õÊ¼»¯objectAttributes
+	//åˆå§‹åŒ–objectAttributes
 	InitializeObjectAttributes(&objectAttributes,&RegUnicodeString,OBJ_CASE_INSENSITIVE,NULL,NULL);
 
 	do{
-		//´ò¿ª×¢²á±í
+		//æ‰“å¼€æ³¨å†Œè¡¨
 		NTSTATUS ntStatus = ZwOpenKey(&hRegister, KEY_ALL_ACCESS, &objectAttributes);
 		if (NT_SUCCESS(ntStatus)){
 			KdPrint(("Open register db successfully\n"));
@@ -118,14 +123,14 @@ NTSTATUS SetDBKey(WCHAR *dbname,WCHAR *dbhost){
 		Status = ZwSetValueKey(hRegister, &ValueName, 0, REG_SZ, dbhost, wcslen(dbhost) * 2 + 2);
 		//------------------------------------------------------------------------
 
-		//¹Ø±Õ×¢²á±í¾ä±ú
+		//å…³é—­æ³¨å†Œè¡¨å¥æŸ„
 		ZwClose(hRegister);
 	} while (FALSE);
 	
 	return Status;
 }
 
-//ÉèÖÃ×¢²á±íÏîSYS¼üÖµ
+//è®¾ç½®æ³¨å†Œè¡¨é¡¹SYSé”®å€¼
 NTSTATUS SetSYSKey(WCHAR *sysAdmin, WCHAR *sysPassword){
 	NTSTATUS Status = STATUS_SUCCESS;
 
@@ -133,14 +138,14 @@ NTSTATUS SetSYSKey(WCHAR *sysAdmin, WCHAR *sysPassword){
 	UNICODE_STRING RegUnicodeString;
 	HANDLE hRegister;
 
-	//³õÊ¼»¯UNICODE_STRING×Ö·û´®
+	//åˆå§‹åŒ–UNICODE_STRINGå­—ç¬¦ä¸²
 	RtlInitUnicodeString(&RegUnicodeString, MY_REG_SOFTWARE_KEY_SYS);
 	OBJECT_ATTRIBUTES objectAttributes;
-	//³õÊ¼»¯objectAttributes
+	//åˆå§‹åŒ–objectAttributes
 	InitializeObjectAttributes(&objectAttributes, &RegUnicodeString, OBJ_CASE_INSENSITIVE, NULL, NULL);
 
 	do{
-		//´ò¿ª×¢²á±í
+		//æ‰“å¼€æ³¨å†Œè¡¨
 		NTSTATUS ntStatus = ZwOpenKey(&hRegister, KEY_ALL_ACCESS, &objectAttributes);
 		if (NT_SUCCESS(ntStatus)){
 			KdPrint(("Open register sys successfully\n"));
@@ -163,31 +168,31 @@ NTSTATUS SetSYSKey(WCHAR *sysAdmin, WCHAR *sysPassword){
 		Status = ZwSetValueKey(hRegister, &ValueName, 0, REG_SZ, sysPassword, wcslen(sysPassword) * 2 + 2);
 		//------------------------------------------------------------------------
 
-		//¹Ø±Õ×¢²á±í¾ä±ú
+		//å…³é—­æ³¨å†Œè¡¨å¥æŸ„
 		ZwClose(hRegister);
 	} while (FALSE);
 
 	return Status;
 }
 
-//²éÑ¯DB¼üÖµ
+//æŸ¥è¯¢DBé”®å€¼
 VOID QueryDBKey(){
 
 	UNICODE_STRING RegUnicodeString;
 	HANDLE hRegister;
 	NTSTATUS ntStatus;
-	UNICODE_STRING ValueName;		//¼üÖµÃû
-	ULONG ulSize;					//·µ»ØµÄÖµ³¤¶È
+	UNICODE_STRING ValueName;		//é”®å€¼å
+	ULONG ulSize;					//è¿”å›çš„å€¼é•¿åº¦
 	PKEY_VALUE_PARTIAL_INFORMATION pvpi;
 
-	//³õÊ¼»¯UNICODE_STRING×Ö·û´®
+	//åˆå§‹åŒ–UNICODE_STRINGå­—ç¬¦ä¸²
 	RtlInitUnicodeString(&RegUnicodeString,MY_REG_SOFTWARE_KEY_DB);
 
 	OBJECT_ATTRIBUTES objectAttributes;
-	//³õÊ¼»¯objectAttributes
+	//åˆå§‹åŒ–objectAttributes
 	InitializeObjectAttributes(&objectAttributes,&RegUnicodeString,OBJ_CASE_INSENSITIVE,NULL,NULL);
 	do{
-		//´ò¿ª×¢²á±í
+		//æ‰“å¼€æ³¨å†Œè¡¨
 		ntStatus = ZwOpenKey(&hRegister, KEY_ALL_ACCESS, &objectAttributes);
 		if (NT_SUCCESS(ntStatus)){
 			KdPrint(("Open register successfully\n"));
@@ -196,9 +201,9 @@ VOID QueryDBKey(){
 
 		//REG_SZ
 		//--------------------------------------------DBHOST-------------------------------------------------
-		//³õÊ¼»¯ValueName
+		//åˆå§‹åŒ–ValueName
 		RtlInitUnicodeString(&ValueName, L"dbhost");
-		//¶ÁÈ¡REG_SZ×Ó¼ü
+		//è¯»å–REG_SZå­é”®
 		ntStatus = ZwQueryValueKey(hRegister,&ValueName,KeyValuePartialInformation,NULL,0,&ulSize);
 		if (ntStatus == STATUS_OBJECT_NAME_NOT_FOUND || ulSize == 0){
 			ZwClose(hRegister);
@@ -212,22 +217,22 @@ VOID QueryDBKey(){
 			KdPrint(("Read regsiter error\n"));
 			return ;
 		}
-		//ÅĞ¶ÏÊÇ·ñÎªREG_SZÀàĞÍ
+		//åˆ¤æ–­æ˜¯å¦ä¸ºREG_SZç±»å‹
 		if (pvpi->Type == REG_SZ){
 			KdPrint(("The value:%S\n", pvpi->Data));
 			int i = 0;
-			//½«¶Á³öÀ´µÄÖµ¸³¸ørgr½á¹¹
+			//å°†è¯»å‡ºæ¥çš„å€¼èµ‹ç»™rgrç»“æ„
 			KdPrint(("dbhost length:%d\n",pvpi->DataLength));
 			//-------------------------------------------------------------------
 			ANSI_STRING asci;
 			UNICODE_STRING unicode;
 			unicode.Length = unicode.MaximumLength = (USHORT)pvpi->DataLength;
 			unicode.Buffer = (PWSTR)ExAllocatePool(PagedPool, unicode.Length);
-			//½«²éÑ¯µ½µÄÊı¾İpvpi¿½±´¸øĞÂ½¨µÄUNICODE_STRINGÖĞ
+			//å°†æŸ¥è¯¢åˆ°çš„æ•°æ®pvpiæ‹·è´ç»™æ–°å»ºçš„UNICODE_STRINGä¸­
 			RtlCopyMemory(unicode.Buffer, pvpi->Data, unicode.Length);
 
 			KdPrint(("unicode buffer:%ws\n", unicode.Buffer));
-			//½«unicode×ª³ÉAsci,²¢¸øAsci·ÖÅäÄÚ´æ
+			//å°†unicodeè½¬æˆAsci,å¹¶ç»™Asciåˆ†é…å†…å­˜
 			RtlUnicodeStringToAnsiString(&asci, &unicode, TRUE);
 
 			KdPrint(("asci buffer:%s\n", asci.Buffer));
@@ -250,9 +255,9 @@ VOID QueryDBKey(){
 		//---------------------------------------------------------------------------------------------------
 
 		//--------------------------------------------DBNAME-------------------------------------------------
-		//³õÊ¼»¯ValueName
+		//åˆå§‹åŒ–ValueName
 		RtlInitUnicodeString(&ValueName, L"dbname");
-		//ÅĞ¶Ï×Ó¼ü´æÔÚ
+		//åˆ¤æ–­å­é”®å­˜åœ¨
 		ntStatus = ZwQueryValueKey(hRegister, &ValueName, KeyValuePartialInformation, NULL, 0, &ulSize);
 		if (ntStatus == STATUS_OBJECT_NAME_NOT_FOUND || ulSize == 0){
 			ZwClose(hRegister);
@@ -266,7 +271,7 @@ VOID QueryDBKey(){
 			KdPrint(("Read regsiter error\n"));
 			return ;
 		}
-		//ÅĞ¶ÏÊÇ·ñÎªREG_SZÀàĞÍ
+		//åˆ¤æ–­æ˜¯å¦ä¸ºREG_SZç±»å‹
 		if (pvpi->Type == REG_SZ){
 			KdPrint(("The value:%S\n", pvpi->Data));
 			int i = 0;
@@ -307,24 +312,24 @@ VOID QueryDBKey(){
 	} while (FALSE);
 }
 
-//²éÑ¯SYS¼üÖµ
+//æŸ¥è¯¢SYSé”®å€¼
 VOID QuerySYSKey(){
 
 	UNICODE_STRING RegUnicodeString;
 	HANDLE hRegister;
 	NTSTATUS ntStatus;
-	UNICODE_STRING ValueName;		//¼üÖµÃû
-	ULONG ulSize;					//·µ»ØµÄÖµ³¤¶È
+	UNICODE_STRING ValueName;		//é”®å€¼å
+	ULONG ulSize;					//è¿”å›çš„å€¼é•¿åº¦
 	PKEY_VALUE_PARTIAL_INFORMATION pvpi;
 
-	//³õÊ¼»¯UNICODE_STRING×Ö·û´®
+	//åˆå§‹åŒ–UNICODE_STRINGå­—ç¬¦ä¸²
 	RtlInitUnicodeString(&RegUnicodeString, MY_REG_SOFTWARE_KEY_SYS);
 
 	OBJECT_ATTRIBUTES objectAttributes;
-	//³õÊ¼»¯objectAttributes
+	//åˆå§‹åŒ–objectAttributes
 	InitializeObjectAttributes(&objectAttributes, &RegUnicodeString, OBJ_CASE_INSENSITIVE, NULL, NULL);
 	do{
-		//´ò¿ª×¢²á±í
+		//æ‰“å¼€æ³¨å†Œè¡¨
 		ntStatus = ZwOpenKey(&hRegister, KEY_ALL_ACCESS, &objectAttributes);
 		if (NT_SUCCESS(ntStatus)){
 			KdPrint(("Open register successfully\n"));
@@ -332,9 +337,9 @@ VOID QuerySYSKey(){
 
 		//REG_SZ
 		//--------------------------------------------SYSAdmin-------------------------------------------------
-		//³õÊ¼»¯ValueName
+		//åˆå§‹åŒ–ValueName
 		RtlInitUnicodeString(&ValueName, L"sysAdmin");
-		//¶ÁÈ¡REG_SZ×Ó¼ü
+		//è¯»å–REG_SZå­é”®
 		ntStatus = ZwQueryValueKey(hRegister, &ValueName, KeyValuePartialInformation, NULL, 0, &ulSize);
 		if (ntStatus == STATUS_OBJECT_NAME_NOT_FOUND || ulSize == 0){
 			ZwClose(hRegister);
@@ -348,7 +353,7 @@ VOID QuerySYSKey(){
 			KdPrint(("Read regsiter error\n"));
 			return;
 		}
-		//ÅĞ¶ÏÊÇ·ñÎªREG_SZÀàĞÍ
+		//åˆ¤æ–­æ˜¯å¦ä¸ºREG_SZç±»å‹
 		if (pvpi->Type == REG_SZ){
 			KdPrint(("The value:%S\n", pvpi->Data));
 			int i = 0;
@@ -357,11 +362,11 @@ VOID QuerySYSKey(){
 			UNICODE_STRING unicode;
 			unicode.Length = unicode.MaximumLength = (USHORT)pvpi->DataLength;
 			unicode.Buffer = (PWSTR)ExAllocatePool(PagedPool, unicode.Length);
-			//½«²éÑ¯µ½µÄÊı¾İpvpi¿½±´¸øĞÂ½¨µÄUNICODE_STRINGÖĞ
+			//å°†æŸ¥è¯¢åˆ°çš„æ•°æ®pvpiæ‹·è´ç»™æ–°å»ºçš„UNICODE_STRINGä¸­
 			RtlCopyMemory(unicode.Buffer, pvpi->Data, unicode.Length);
 
 			KdPrint(("unicode buffer:%ws\n", unicode.Buffer));
-			//½«unicode×ª³ÉAsci,²¢¸øAsci·ÖÅäÄÚ´æ
+			//å°†unicodeè½¬æˆAsci,å¹¶ç»™Asciåˆ†é…å†…å­˜
 			RtlUnicodeStringToAnsiString(&asci, &unicode, TRUE);
 
 			KdPrint(("asci buffer:%s\n", asci.Buffer));
@@ -375,9 +380,9 @@ VOID QuerySYSKey(){
 		//---------------------------------------------------------------------------------------------------
 
 		//--------------------------------------------SysPassword-------------------------------------------------
-		//³õÊ¼»¯ValueName
+		//åˆå§‹åŒ–ValueName
 		RtlInitUnicodeString(&ValueName, L"sysPassword");
-		//ÅĞ¶Ï×Ó¼ü´æÔÚ
+		//åˆ¤æ–­å­é”®å­˜åœ¨
 		ntStatus = ZwQueryValueKey(hRegister, &ValueName, KeyValuePartialInformation, NULL, 0, &ulSize);
 		if (ntStatus == STATUS_OBJECT_NAME_NOT_FOUND || ulSize == 0){
 			ZwClose(hRegister);
@@ -391,7 +396,7 @@ VOID QuerySYSKey(){
 			KdPrint(("Read regsiter error\n"));
 			return;
 		}
-		//ÅĞ¶ÏÊÇ·ñÎªREG_SZÀàĞÍ
+		//åˆ¤æ–­æ˜¯å¦ä¸ºREG_SZç±»å‹
 		if (pvpi->Type == REG_SZ){
 			KdPrint(("The value:%S\n", pvpi->Data));
 			int i = 0;
@@ -401,11 +406,11 @@ VOID QuerySYSKey(){
 			UNICODE_STRING unicode;
 			unicode.Length = unicode.MaximumLength = (USHORT)pvpi->DataLength;
 			unicode.Buffer = (PWSTR)ExAllocatePool(PagedPool, unicode.Length);
-			//½«²éÑ¯µ½µÄÊı¾İpvpi¿½±´¸øĞÂ½¨µÄUNICODE_STRINGÖĞ
+			//å°†æŸ¥è¯¢åˆ°çš„æ•°æ®pvpiæ‹·è´ç»™æ–°å»ºçš„UNICODE_STRINGä¸­
 			RtlCopyMemory(unicode.Buffer, pvpi->Data, unicode.Length);
 
 			KdPrint(("unicode buffer:%ws\n", unicode.Buffer));
-			//½«unicode×ª³ÉAsci,²¢¸øAsci·ÖÅäÄÚ´æ
+			//å°†unicodeè½¬æˆAsci,å¹¶ç»™Asciåˆ†é…å†…å­˜
 			RtlUnicodeStringToAnsiString(&asci, &unicode, TRUE);
 
 			KdPrint(("asci buffer:%s\n", asci.Buffer));
@@ -424,27 +429,27 @@ VOID QuerySYSKey(){
 	//return STATUS_SUCCESS;
 }
 
-//É¾³ıDB¼ü
+//åˆ é™¤DBé”®
 NTSTATUS DeleteDBKey(){
 
 	UNICODE_STRING RegUnicodeString;
 	HANDLE hRegister;
 	NTSTATUS ntStatus;
 
-	//³õÊ¼»¯UNICODE_STRING×Ö·û´®
+	//åˆå§‹åŒ–UNICODE_STRINGå­—ç¬¦ä¸²
 	RtlInitUnicodeString(&RegUnicodeString,MY_REG_SOFTWARE_KEY_DB);
 
 	OBJECT_ATTRIBUTES objectAttributes;
-	//³õÊ¼»¯objectAttributes
+	//åˆå§‹åŒ–objectAttributes
 	InitializeObjectAttributes(&objectAttributes,&RegUnicodeString,OBJ_CASE_INSENSITIVE,NULL,NULL);
-	//´ò¿ª×¢²á±í
+	//æ‰“å¼€æ³¨å†Œè¡¨
 	ntStatus = ZwOpenKey(&hRegister, KEY_ALL_ACCESS, &objectAttributes);
 
 	if (NT_SUCCESS(ntStatus))
 	{
 		KdPrint(("Open register DB successfully\n"));
 	}
-	//É¾³ıÖ¸¶¨µÄ×Ó¼ü
+	//åˆ é™¤æŒ‡å®šçš„å­é”®
 	ntStatus = ZwDeleteKey(hRegister);
 	if (NT_SUCCESS(ntStatus))
 	{
@@ -469,25 +474,25 @@ NTSTATUS DeleteDBKey(){
 	return STATUS_SUCCESS;
 }
 
-//É¾³ıSYS¼ü
+//åˆ é™¤SYSé”®
 NTSTATUS DeleteSYSKey(){
 
 	UNICODE_STRING RegUnicodeString;
 	HANDLE hRegister;
 	NTSTATUS ntStatus;
 
-	//³õÊ¼»¯UNICODE_STRING×Ö·û´®
+	//åˆå§‹åŒ–UNICODE_STRINGå­—ç¬¦ä¸²
 	RtlInitUnicodeString(&RegUnicodeString,MY_REG_SOFTWARE_KEY_SYS);
 
 	OBJECT_ATTRIBUTES objectAttributes;
-	//³õÊ¼»¯objectAttributes
+	//åˆå§‹åŒ–objectAttributes
 	InitializeObjectAttributes(&objectAttributes,&RegUnicodeString,OBJ_CASE_INSENSITIVE,NULL,NULL);
-	//´ò¿ª×¢²á±í
+	//æ‰“å¼€æ³¨å†Œè¡¨
 	ntStatus = ZwOpenKey(&hRegister,KEY_ALL_ACCESS,&objectAttributes);
 	if (NT_SUCCESS(ntStatus)){
 		KdPrint(("Open register SYS successfully\n"));
 	}
-	//É¾³ı×ÓÏî²Ù×÷
+	//åˆ é™¤å­é¡¹æ“ä½œ
 	ntStatus = ZwDeleteKey(hRegister);
 	if (NT_SUCCESS(ntStatus))
 	{
